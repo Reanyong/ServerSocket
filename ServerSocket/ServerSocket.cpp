@@ -1,21 +1,81 @@
-﻿// ServerSocket.cpp : 이 파일에는 'main' 함수가 포함됩니다. 거기서 프로그램 실행이 시작되고 종료됩니다.
-//
+﻿#include <iostream>
+#include <cstring>
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#pragma comment(lib, "Ws2_32.lib")
+#else
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#endif
 
-#include <iostream>
+int main() {
+#ifdef _WIN32
+    WSADATA wsaData;
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+        std::cerr << "WSAStartup failed.\n";
+        return 1;
+    }
+#endif
 
-int main()
-{
-    std::cout << "Hello World!\n";
-    std::cout << "Http Server Socket Programs\n";
+    int server_fd, new_socket;
+    struct sockaddr_in address;
+    int opt = 1;
+    int addrlen = sizeof(address);
+    const char* message = "Hello from server";
+
+    // 소켓 생성
+    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+        std::cerr << "Socket failed\n";
+        return 1;
+    }
+
+    // 포트 재사용 옵션 설정
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, (char*)&opt, sizeof(opt)) < 0) {
+        std::cerr << "setsockopt failed\n";
+        return 1;
+    }
+
+    // 주소와 포트 설정
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons(8080);
+
+    // 소켓을 해당 주소와 포트에 바인딩
+    if (bind(server_fd, (struct sockaddr*)&address, sizeof(address)) < 0) {
+        std::cerr << "Bind failed\n";
+        return 1;
+    }
+
+    // 클라이언트의 연결을 기다림
+    if (listen(server_fd, 3) < 0) {
+        std::cerr << "Listen failed\n";
+        return 1;
+    }
+
+    std::cout << "Server listening on port 8080\n";
+
+    // 클라이언트의 연결 요청 수락
+    if ((new_socket = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrlen)) < 0) {
+        std::cerr << "Accept failed\n";
+        return 1;
+    }
+
+    // 클라이언트에게 메시지 전송
+    send(new_socket, message, strlen(message), 0);
+    std::cout << "Message sent to client\n";
+
+    // 소켓 종료
+#ifdef _WIN32
+    closesocket(new_socket);
+    WSACleanup();
+#else
+    close(new_socket);
+#endif
+
+    std::cout << "Press Enter to exit..." << std::endl;
+    std::cin.get();  // 사용자가 Enter 키를 누를 때까지 대기
+
+    return 0;
 }
-
-// 프로그램 실행: <Ctrl+F5> 또는 [디버그] > [디버깅하지 않고 시작] 메뉴
-// 프로그램 디버그: <F5> 키 또는 [디버그] > [디버깅 시작] 메뉴
-
-// 시작을 위한 팁:
-//   1. [솔루션 탐색기] 창을 사용하여 파일을 추가/관리합니다.
-//   2. [팀 탐색기] 창을 사용하여 소스 제어에 연결합니다.
-//   3. [출력] 창을 사용하여 빌드 출력 및 기타 메시지를 확인합니다.
-//   4. [오류 목록] 창을 사용하여 오류를 봅니다.
-//   5. [프로젝트] > [새 항목 추가]로 이동하여 새 코드 파일을 만들거나, [프로젝트] > [기존 항목 추가]로 이동하여 기존 코드 파일을 프로젝트에 추가합니다.
-//   6. 나중에 이 프로젝트를 다시 열려면 [파일] > [열기] > [프로젝트]로 이동하고 .sln 파일을 선택합니다.
